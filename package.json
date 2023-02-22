@@ -1,0 +1,31 @@
+{
+  "name": "jregexer",
+  "version": "1.0.0",
+  "description": "A regex based parsing combinator library for JavaScript",
+  "main": "src/JRegexer.js",
+  "scripts": {
+    "test": "npm run build && export UEBLUEPRINT_TEST_SERVER_PORT=8181 && npx concurrently -k \"http-server -s -p $UEBLUEPRINT_TEST_SERVER_PORT\" \"npx cypress run --env UEBLUEPRINT_TEST_SERVER_PORT=8181\"",
+    "cypress": "export UEBLUEPRINT_TEST_SERVER_PORT=8181 && npx concurrently -k \"http-server -c-1 -p $UEBLUEPRINT_TEST_SERVER_PORT\" \"npx cypress open --env UEBLUEPRINT_TEST_SERVER_PORT=8181\""
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/barsdeveloper/jregexer.git"
+  },
+  "keywords": [
+    "parser",
+    "combinator",
+    "regex",
+    "parsing"
+  ],
+  "author": "barsdeveloper",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/barsdeveloper/jregexer/issues"
+  },
+  "homepage": "https://github.com/barsdeveloper/jregexer#readme",
+  "devDependencies": {
+    "concurrently": "^7.6.0",
+    "cypress": "^12.6.0",
+    "http-server": "^14.1.1"
+  }
+}
