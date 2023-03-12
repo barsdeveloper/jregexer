@@ -19,6 +19,6 @@ export default class StringParser extends Parser {
     }
 
     regexFragment(canOmitParentheses = false, matchesBegin = false, matchesEnd = false) {
-        return this.value.replaceAll(Parser.escapedCharacter, "\\$0")
+        return this.value.replaceAll(Parser.escapedCharacter, "\\$1")
     }
 }

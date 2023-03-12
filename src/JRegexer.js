@@ -5,6 +5,7 @@ import RegexParser from "./token/RegexParser"
 import RepeatParser from "./token/RepeatParser"
 import Sequence from "./token/Sequence"
 import StringParser from "./token/StringParser"
+import AnyCharacterParser from "./token/AnyCharacterParser"
 
 /**
  * @template {Parser<ChildrenT>} ParserT
@@ -18,6 +19,8 @@ export default class JRegexer {
     get parser() {
         return this.#parser
     }
+
+    #simplified = false
 
     /** @param {ParserT} parser */
     constructor(parser) {
@@ -58,13 +61,23 @@ export default class JRegexer {
     }
 
     simplify() {
-        // @ts-expect-error
+        if (this.#simplified) {
+            return this
+        }
         this.#parser = this.#parser.createSimplified()
+        this.#simplified = true
         return this
     }
 
     createRegex(flags = "g") {
+        if (!this.#simplified) {
+            this.simplify()
+        }
         return new RegExp(this.parser.regexFragment(true, true, true), flags)
+    }
+
+    parse(value) {
+        return this.#parser.parse(value)
     }
 
     /**
@@ -74,7 +87,7 @@ export default class JRegexer {
      */
     or(other) {
         if (!(other instanceof JRegexer)) {
-            throw new Error('Please use the function R() to create parsers [R("a").or(R("b"))]')
+            throw new Error('Please use the function R() to create parsers: [...].or(R("b"))')
         }
         return new JRegexer(new AlternativeParser(this.parser, other.parser))
     }
@@ -86,7 +99,7 @@ export default class JRegexer {
      */
     then(other) {
         if (!(other instanceof JRegexer)) {
-            throw new Error('Please use the function R() to create parsers [R("a").then(R("b"))]')
+            throw new Error('Please use the function R() to create parsers [...].then(R("b"))')
         }
         return new JRegexer(new Sequence(this.parser, other.parser))
     }
@@ -98,7 +111,7 @@ export default class JRegexer {
      */
     sepBy(separator, min = 0) {
         if (!(separator instanceof JRegexer)) {
-            throw new Error('Please use the function R() to create parsers [R("a").sepBy(R("b"))]')
+            throw new Error('Please use the function R() to create parsers [...].sepBy(R("b"))')
         }
         return new JRegexer(
             new Sequence(
@@ -150,8 +163,14 @@ export default class JRegexer {
     star() {
         return this.atLeast(0)
     }
+
+    maybe() {
+        return this.times(0, 1)
+    }
+
+    map(mapper) {
+        return new RegexParser()
+    }
 }
 
 export const R = JRegexer.sanitize
-
-let a = R("alpha").or(R("beta")).or(R("gamma")).parser.children[0]

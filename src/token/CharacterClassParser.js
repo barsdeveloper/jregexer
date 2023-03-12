@@ -1,13 +1,12 @@
+import AnyCharacterParser from "./AnyCharacterParser"
 import CharacterParser from "./CharacterParser"
+import ISingleCharacterParser from "./ISingleCharacterParser"
 import Parser from "../Parser"
 import RangeParser from "./RangeParser"
 
-/**
- * @template {(CharacterParser | RangeParser)[]} ChildrenT
- * @extends {Parser<ChildrenT>}
- */
-
-export default class CharacterClassParser extends Parser {
+// @ts-expect-error
+/** @template {(RangeParser | CharacterParser)[]} ChildrenT @extends {Parser<ChildrenT>} */
+export default class CharacterClassParser extends ISingleCharacterParser {
 
     /** @param {ChildrenT} alternatives */
     constructor(...alternatives) {
@@ -36,10 +35,35 @@ export default class CharacterClassParser extends Parser {
             : null
     }
 
+    /** @param {ISingleCharacterParser} characterParser */
+    mergeWith(characterParser) {
+        if (characterParser instanceof AnyCharacterParser) {
+            return new AnyCharacterParser(characterParser.newline)
+        }
+        if (characterParser instanceof CharacterClassParser) {
+            return /** @type {CharacterClassParser<(RangeParser | CharacterParser)[]>} */(characterParser)
+                .children
+                .reduce(
+                    (acc, cur) => acc.mergeWith(cur),
+                    this,
+                )
+        }
+        if (characterParser instanceof CharacterParser || characterParser instanceof RangeParser) {
+            const result = new CharacterClassParser(...this.children)
+            result.children.push(characterParser)
+            return result
+        }
+        return null
+    }
+
+    isParenthesized() {
+        return true
+    }
+
     createSimplified() {
         let simplified = false
         let result = []
-        let children = [...this.children].sort((a, b) => a.getCharCode() - b.getCharCode())
+        const children = [...this.children].sort((a, b) => a.getCharCode() - b.getCharCode())
         let current = children[0]
         for (let i = 1; i < children.length; ++i) {
             let candidate = CharacterClassParser.mergeRanges(current, children[i])
@@ -52,6 +76,9 @@ export default class CharacterClassParser extends Parser {
             }
         }
         result.push(current)
+        if (result.length === 1 && result[0] instanceof CharacterParser) {
+            return result[0]
+        }
         return simplified ? new CharacterClassParser(...result) : this
     }
 

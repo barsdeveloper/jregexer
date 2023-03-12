@@ -1,8 +1,8 @@
-import Parser from "../Parser"
 import CharacterParser from "./CharacterParser"
+import ISingleCharacterParser from "./ISingleCharacterParser"
 
-/** @extends {Parser<[CharacterParser, CharacterParser]>} */
-export default class RangeParser extends Parser {
+/** @extends {ISingleCharacterParser<CharacterParser[]>} */
+export default class RangeParser extends ISingleCharacterParser {
 
     /**
      * @param {CharacterParser} from
@@ -18,10 +18,6 @@ export default class RangeParser extends Parser {
         super(from, to)
     }
 
-    isParenthesized() {
-        return true
-    }
-
     getCharCode() {
         return this.children[0].getCharCode()
     }
@@ -35,7 +31,7 @@ export default class RangeParser extends Parser {
 
     regexFragment(canOmitParentheses = false, matchesBegin = false, matchesEnd = false) {
         return this.children[0].regexFragment(false, false, false)
-            + "-"
+            + (this.children[1].getCharCode() > this.children[0].getCharCode() + 1 ? "-" : "")
             + this.children[1].regexFragment(false, false, false)
     }
 }

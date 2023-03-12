@@ -1,11 +1,13 @@
-import Parser from "../Parser"
+import AnyCharacterParser from "./AnyCharacterParser"
 import CharacterClassParser from "./CharacterClassParser"
 import CharacterParser from "./CharacterParser"
+import ISingleCharacterParser from "./ISingleCharacterParser"
+import Parser from "../Parser"
 import RangeParser from "./RangeParser"
 import StringParser from "./StringParser"
 
 /**
- * @template {[...Parser[]]} ChildrenT
+ * @template {Parser<ChildrenT>[]} ChildrenT
  * @extends {Parser<ChildrenT>}
  */
 export default class AlternativeParser extends Parser {
@@ -16,8 +18,9 @@ export default class AlternativeParser extends Parser {
     }
 
     createSimplified() {
+        /** @type {ISingleCharacterParser} */
         let characterClass = new CharacterClassParser()
-        let children = [...this.children]
+        const children = [...this.children]
         let alternatives = new Set()
         let simplified = false
         for (let i = 0; i < children.length; ++i) {
@@ -28,10 +31,13 @@ export default class AlternativeParser extends Parser {
                 continue
             }
             const child = children[i] = children[i].createSimplified()
-            if (child instanceof CharacterClassParser) {
-                characterClass.children.push(...child.children)
-            } else if (child instanceof CharacterParser || child instanceof RangeParser) {
-                characterClass.children.push(child)
+            if (
+                child instanceof AnyCharacterParser
+                || child instanceof CharacterClassParser
+                || child instanceof CharacterParser
+                || child instanceof RangeParser
+            ) {
+                characterClass = characterClass.mergeWith(child)
                 children.splice(i, 1)
                 --i
                 simplified = true
@@ -49,7 +55,7 @@ export default class AlternativeParser extends Parser {
             children.push(characterClass.createSimplified())
             simplified = true
         }
-        if (children.length === 1 && children[0] instanceof CharacterClassParser) {
+        if (children.length === 1) {
             return children[0]
         }
         return simplified ? new AlternativeParser(...children) : this

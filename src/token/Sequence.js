@@ -1,5 +1,5 @@
-import Parser from "../Parser"
 import CharacterParser from "./CharacterParser"
+import Parser from "../Parser"
 import StringParser from "./StringParser"
 
 /**
@@ -24,7 +24,9 @@ export default class SequenceParser extends Parser {
                 simplified = true
                 continue
             }
-            const child = children[i] = children[i].createSimplified()
+            const child = children[i].createSimplified()
+            simplified ||= child !== children[i]
+            children[i] = child
             if (i > 0 && (child instanceof StringParser || child instanceof CharacterParser)) {
                 const prev = children[i - 1]
                 if (prev instanceof StringParser || prev instanceof CharacterParser) {

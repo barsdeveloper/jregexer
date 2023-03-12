@@ -1,6 +1,7 @@
 import Parser from "../Parser"
+import ISingleCharacterParser from "./ISingleCharacterParser"
 
-export default class CharacterParser extends Parser {
+export default class CharacterParser extends ISingleCharacterParser {
 
     static singleCharacterRegex = new RegExp(
         String.raw`^(?:\\${Parser.escapedCharacter.source}|(?!${Parser.escapedCharacter.source}).)$`
