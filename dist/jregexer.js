@@ -1,3 +1,15 @@
+/** @template T */
+class Success {
+    status = false
+    /** @type {T} */
+    result
+
+    /** @param {T} result */
+    constructor(result) {
+        this.result = result
+    }
+}
+
 /** @template {Parser<ChildrenT>[]} ChildrenT */
 class Parser {
 
@@ -16,6 +28,14 @@ class Parser {
     static insideBracket = new RegExp(String.raw`(?<=\[)${Parser.insideBracketContent}(?=\])`)
     static anchoredInsideBracket = new RegExp(String.raw`(?<=^\[)${Parser.insideBracketContent}(?=\]$)`)
 
+    /** @type {RegExp} */
+    #regex
+
+    #treeRecursion = -1
+
+    /** @type {Boolean?} */
+    #isRegexExhaustive
+
     /** @type {ChildrenT} */
     #children = null
     get children() {
@@ -27,20 +47,52 @@ class Parser {
         this.#children = children;
     }
 
-    /**
-     * @template {Parser<C>[]} C
-     * @param {C} children
-     * @returns {Parser[]}
-     */
-    static flattenChildren = children =>
-        children.flatMap(c =>
-            c instanceof this.constructor
-                ? this.flattenChildren(c.children)
-                : c
-        )
+    static furthestFailure(a, b) {
+
+    }
+
+    createFailure(value, location) {
+        return {
+            status: false,
+            value: value,
+            location: location,
+        }
+    }
+
+    /** @param {String} remaining */
+    createSuccess(result, remaining) {
+        return {
+            status: true,
+            value: result,
+            remaining: remaining,
+        }
+    }
+
+    createRegex(flags = "g") {
+        if (!this.#regex) {
+            this.#regex = new RegExp("^" + this.regexFragment(true, true, true), flags)
+        }
+        return this.#regex
+    }
 
     /** @param {String} value */
     parse(value) {
+        if (this.isRegexExhaustive()) {
+            const regex = this.createRegex()
+            const result = regex.exec(value)
+            if (!result) {
+                return new Success(result)
+            }
+            return this.createSuccess(result[0], value.substring(result[0].length))
+        }
+        return this.parseImplement(value)
+    }
+
+    /** @param {String} value */
+    parseImplement(value) {
+        if (this.children.length == 1) {
+            return this.children[0].parseImplement(value)
+        }
         throw new Error("Not implemented")
     }
 
@@ -52,23 +104,75 @@ class Parser {
         return false
     }
 
-    /** @returns {Boolean} Can the created regex be used for full parsing */
-    isRegexExhaustive() {
-        return this.children.every(c => c.isRegexExhaustive())
+    isRegexExhaustive(parents = new Set()) {
+        if (this.#isRegexExhaustive != undefined) {
+            return this.#isRegexExhaustive
+        }
+        if (parents.has(this)) {
+            this.#isRegexExhaustive = false
+            return this.#isRegexExhaustive
+        }
+        parents.add(this)
+        this.#isRegexExhaustive = this.children.every(c => c.isRegexExhaustive(parents))
+        parents.delete(this)
+        return this.#isRegexExhaustive
+    }
+
+    treeRecursion(nodes = new Set(), maxDepth = Number.POSITIVE_INFINITY) {
+        if (this.#treeRecursion >= 0) {
+            return this.#treeRecursion
+        }
+        if (nodes.has(this)) {
+            this.#treeRecursion = 1
+            return this.#treeRecursion
+        }
+        nodes.add(this)
+        if (--maxDepth >= 0) {
+            for (let i = 0; i < this.#children.length; ++i) {
+                let result
+                if (result = this.#children[i].treeRecursion(nodes, maxDepth)) {
+                    this.#treeRecursion = ++result
+                    return this.#treeRecursion
+                }
+            }
+        }
+        this.#treeRecursion = 0
+        return this.#treeRecursion
     }
 
     regexFragment(canOmitParentheses = false, matchesBegin = false, matchesEnd = false) {
         return ""
     }
+
+    /**
+     * @param {(child: Parser<ChildrenT>) => Boolean} predicate
+     * @param {Boolean} includeThis
+     * @returns {Parser<ChildrenT>?}
+     */
+    deepFind(predicate, parents = new Set(), includeThis = true) {
+        if (includeThis && predicate(this)) {
+            return this
+        }
+        parents.add(this)
+        const result = this.children.find(c => c.deepFind(predicate, parents))
+        parents.delete(this)
+        return result
+    }
 }
 
 /**
- * @typedef {import("./CharacterClassParser").default} CharacterClassParser
- * @typedef {import("./CharacterParser").default} CharacterParser
- * @typedef {import("./RangeParser").default} RangeParser
+ * @template {Parser<ChildrenT>[]} ChildrenT
+ * @extends {Parser<ChildrenT>}
  */
+class ISingleCharacterParser extends Parser {
 
-class AnyCharacterParser extends Parser {
+    /** @param {ISingleCharacterParser} characterParser */
+    mergeWith(characterParser) {
+        return characterParser
+    }
+}
+
+class AnyCharacterParser extends ISingleCharacterParser {
 
     #newline = true
     get newline() {
@@ -81,9 +185,7 @@ class AnyCharacterParser extends Parser {
         this.#newline = newline;
     }
 
-    /**
-     * @param {CharacterClassParser | AnyCharacterParser | CharacterParser | RangeParser} characterParser
-     */
+    /** @param {ISingleCharacterParser} characterParser */
     mergeWith(characterParser) {
         return this
     }
@@ -93,7 +195,7 @@ class AnyCharacterParser extends Parser {
     }
 }
 
-class CharacterParser extends Parser {
+class CharacterParser extends ISingleCharacterParser {
 
     static singleCharacterRegex = new RegExp(
         String.raw`^(?:\\${Parser.escapedCharacter.source}|(?!${Parser.escapedCharacter.source}).)$`
@@ -123,8 +225,8 @@ class CharacterParser extends Parser {
     }
 }
 
-/** @extends {Parser<CharacterParser[]>} */
-class RangeParser extends Parser {
+/** @extends {ISingleCharacterParser<CharacterParser[]>} */
+class RangeParser extends ISingleCharacterParser {
 
     /**
      * @param {CharacterParser} from
@@ -160,7 +262,7 @@ class RangeParser extends Parser {
 
 // @ts-expect-error
 /** @template {(RangeParser | CharacterParser)[]} ChildrenT @extends {Parser<ChildrenT>} */
-class CharacterClassParser extends Parser {
+class CharacterClassParser extends ISingleCharacterParser {
 
     /** @param {ChildrenT} alternatives */
     constructor(...alternatives) {
@@ -189,13 +291,14 @@ class CharacterClassParser extends Parser {
             : null
     }
 
-    /** @param {CharacterClassParser | AnyCharacterParser | CharacterParser | RangeParser} characterParser */
+    /** @param {ISingleCharacterParser} characterParser */
     mergeWith(characterParser) {
         if (characterParser instanceof AnyCharacterParser) {
             return new AnyCharacterParser(characterParser.newline)
         }
         if (characterParser instanceof CharacterClassParser) {
-            return /** @type {CharacterClassParser<(RangeParser | CharacterParser)[]>} */(characterParser).children
+            return /** @type {CharacterClassParser<(RangeParser | CharacterParser)[]>} */(characterParser)
+                .children
                 .reduce(
                     (acc, cur) => acc.mergeWith(cur),
                     this,
@@ -204,7 +307,7 @@ class CharacterClassParser extends Parser {
         if (characterParser instanceof CharacterParser || characterParser instanceof RangeParser) {
             const result = new CharacterClassParser(...this.children);
             result.children.push(characterParser);
-            return result.createSimplified()
+            return result
         }
         return null
     }
@@ -274,7 +377,7 @@ class AlternativeParser extends Parser {
     }
 
     createSimplified() {
-        /** @type {CharacterClassParser | AnyCharacterParser} */
+        /** @type {ISingleCharacterParser} */
         let characterClass = new CharacterClassParser();
         const children = [...this.children];
         let alternatives = new Set();
@@ -329,6 +432,17 @@ class AlternativeParser extends Parser {
             ? result
             : "(?:" + result + ")"
     }
+
+    /** @param {String} value */
+    parseImplement(value) {
+        for (let child of this.children) {
+            const result = child.parse(value)
+            if (result.status) {
+                return result
+            }
+        }
+        return this.createFailure(value)
+    }
 }
 
 class RegexParser extends Parser {
@@ -340,6 +454,26 @@ class RegexParser extends Parser {
     constructor(regex) {
         super();
         this.#regex = regex;
+    }
+}
+
+/**
+ * @template {Parser} ChildT
+ * @extends {Parser<[ChildT]>}
+ */
+class GroupToken extends Parser {
+
+    /** @param {ChildT} child */
+    constructor(child) {
+        super(child)
+    }
+
+    isParenthesized() {
+        return true
+    }
+
+    regexFragment(canOmitParentheses = false, matchesBegin = false, matchesEnd = false) {
+        return "(" + this.children[0].regexFragment(true, matchesBegin, matchesEnd) + ")"
     }
 }
 
@@ -398,6 +532,17 @@ class RepeatParser extends Parser {
         }
         const childRegex = this.children[0].regexFragment(true);
         return (this.children[0].isParenthesized() ? childRegex : `(?:${childRegex})`) + result
+    }
+
+    isRegexExhaustive(parents = new Set()) {
+        if (this.max <= 1) {
+            return super.isRegexExhaustive(parents)
+        }
+        if (parents.has(this)) {
+            return false
+        }
+        const result = this.deepFind(c => !c.isRegexExhaustive(parents) || c instanceof GroupToken, parents) == null
+        return result
     }
 }
 
@@ -582,10 +727,10 @@ class JRegexer {
     /** @param {Number} min */
     times(min, max = min) {
         if (min < 0) {
-            throw new Error("Must be at least 0, the value provided is negative")
+            throw new Error("Min must be at least 0")
         }
         if (min > max) {
-            throw new Error("Max must be greater than min")
+            throw new Error("Min is greater than max")
         }
         return new JRegexer(
             new RepeatParser(this.parser, min, max)

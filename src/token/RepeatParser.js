@@ -1,3 +1,4 @@
+import GroupToken from "./GroupToken"
 import Parser from "../Parser"
 
 /**
@@ -55,5 +56,16 @@ export default class RepeatParser extends Parser {
         }
         const childRegex = this.children[0].regexFragment(true)
         return (this.children[0].isParenthesized() ? childRegex : `(?:${childRegex})`) + result
+    }
+
+    isRegexExhaustive(parents = new Set()) {
+        if (this.max <= 1) {
+            return super.isRegexExhaustive(parents)
+        }
+        if (parents.has(this)) {
+            return false
+        }
+        const result = this.deepFind(c => !c.isRegexExhaustive(parents) || c instanceof GroupToken, parents) == null
+        return result
     }
 }

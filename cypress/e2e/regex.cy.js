@@ -1,9 +1,9 @@
 /// <reference types="cypress" />
 
-import { R } from "../../src/JRegexer"
+import { R, Range } from "../../src/JRegexer"
 
-describe("Simple Regex", () => {
-    it("String", () => {
+describe("Regex production test", () => {
+    it("Simple", () => {
         expect(R("hello").createRegex().source)
             .to.equal("hello")
         expect(R("hello\nWorld").createRegex().source)
@@ -129,5 +129,20 @@ describe("Simple Regex", () => {
                 .createRegex().source
         )
             .to.equal("(?:x(?:1*|[2-4])*x[a-c]+)+")
+        expect(
+            Range("1", "6").or(R("5").or(R("7")).or(R("0"))).createRegex().source
+        ).to.equal("[0-7]")
+        expect(
+            Range("0", "3").createRegex().source
+        ).to.equal("[0-3]")
+        expect(
+            R("x").then(R("Alpha").or(R("Beta"))).createRegex().source
+        ).to.equal("x(?:Alpha|Beta)")
+        expect(
+            R("Alpha").or(R("Beta")).then(R("y")).createRegex().source
+        ).to.equal("(?:Alpha|Beta)y")
+        expect(
+            R("Alpha").or(R("Beta").then(R("y"))).createRegex().source
+        ).to.equal("Alpha|Betay")
     })
 })

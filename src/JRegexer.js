@@ -1,11 +1,13 @@
 import AlternativeParser from "./token/AlternativeParser"
+import CharacterClassParser from "./token/CharacterClassParser"
 import CharacterParser from "./token/CharacterParser"
 import Parser from "./Parser"
+import RangeParser from "./token/RangeParser"
 import RegexParser from "./token/RegexParser"
 import RepeatParser from "./token/RepeatParser"
 import Sequence from "./token/Sequence"
 import StringParser from "./token/StringParser"
-import AnyCharacterParser from "./token/AnyCharacterParser"
+import Success from "./Success"
 
 /**
  * @template {Parser<ChildrenT>} ParserT
@@ -69,15 +71,17 @@ export default class JRegexer {
         return this
     }
 
-    createRegex(flags = "g") {
-        if (!this.#simplified) {
-            this.simplify()
-        }
-        return new RegExp(this.parser.regexFragment(true, true, true), flags)
+    createRegex(flags = "") {
+        this.simplify()
+        return this.#parser.createRegex(flags, false, false)
     }
 
     parse(value) {
-        return this.#parser.parse(value)
+        const outcome = this.#parser.parse(value, true)
+        if (!outcome.status) {
+            throw new Error("Failed to parse")
+        }
+        return /** @type {Success} */(outcome).result
     }
 
     /**
@@ -136,10 +140,10 @@ export default class JRegexer {
     /** @param {Number} min */
     times(min, max = min) {
         if (min < 0) {
-            throw new Error("Must be at least 0, the value provided is negative")
+            throw new Error("Min must be at least 0")
         }
         if (min > max) {
-            throw new Error("Max must be greater than min")
+            throw new Error("Min is greater than max")
         }
         return new JRegexer(
             new RepeatParser(this.parser, min, max)
@@ -174,3 +178,9 @@ export default class JRegexer {
 }
 
 export const R = JRegexer.sanitize
+/**
+ * @param {String} from
+ * @param {String} to
+ */
+// @ts-expect-error
+export const Range = (from, to) => R(new CharacterClassParser(new RangeParser(R(from).parser, R(to).parser)))

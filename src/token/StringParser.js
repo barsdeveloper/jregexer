@@ -1,5 +1,5 @@
-import Parser from "../Parser"
 import CharacterParser from "./CharacterParser"
+import Parser from "../Parser"
 
 export default class StringParser extends Parser {
 

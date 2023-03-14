@@ -1,6 +1,7 @@
 import AnyCharacterParser from "./AnyCharacterParser"
 import CharacterClassParser from "./CharacterClassParser"
 import CharacterParser from "./CharacterParser"
+import Failure from "../Failure"
 import ISingleCharacterParser from "./ISingleCharacterParser"
 import Parser from "../Parser"
 import RangeParser from "./RangeParser"
@@ -72,5 +73,20 @@ export default class AlternativeParser extends Parser {
         return canOmitParentheses
             ? result
             : "(?:" + result + ")"
+    }
+
+    /** @param {String} value */
+    parseImplement(value) {
+        let failure
+        for (let child of this.children) {
+            let result = child.parse(value)
+            if (result.status) {
+                return result
+            } else {
+                result = /** @type {Failure} */(result)
+                failure = result.getFurthest(failure ?? result)
+            }
+        }
+        return failure
     }
 }
