@@ -144,5 +144,8 @@ describe("Regex production test", () => {
         expect(
             R("Alpha").or(R("Beta").then(R("y"))).createRegex().source
         ).to.equal("Alpha|Betay")
+        expect(
+            R("x").then(Range("a", "c").plus()).then(R("y")).createRegex().source
+        ).to.equal("x[a-c]+y")
     })
 })

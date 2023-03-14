@@ -65,7 +65,7 @@ export default class RepeatParser extends Parser {
         if (parents.has(this)) {
             return false
         }
-        const result = this.deepFind(c => !c.isRegexExhaustive(parents) || c instanceof GroupToken, parents) == null
+        const result = this.deepFind(c => !c.isRegexExhaustive(parents) || c instanceof GroupToken, parents, false) == null
         return result
     }
 }
